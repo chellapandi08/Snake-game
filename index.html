@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retro Snake Arcade</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 20px 12px;
+    background: #07100e;
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.game-container {
+    width: 100%;
+    max-width: 440px;
+    background: #101b19;
+    border: 1px solid #285348;
+    border-radius: 18px;
+    padding: 16px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.title {
+    color: #72f5a1;
+    font-size: 1.4rem;
+    font-weight: bold;
+}
+
+.subtitle {
+    color: #adc5b8;
+    font-size: 11px;
+    margin-top: 5px;
+}
+
+.scores {
+    display: flex;
+    gap: 8px;
+}
+
+.score-box {
+    background: #1c2c28;
+    border-radius: 10px;
+    padding: 8px 12px;
+    text-align: center;
+    min-width: 65px;
+}
+
+.score-box small {
+    display: block;
+    color: #b2c8be;
+    font-size: 11px;
+}
+
+.score-box span {
+    color: #a0ffc0;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.game-board {
+    width: 100%;
+    position: relative;
+    margin-top: 18px;
+    touch-action: none;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    height: auto;
+    background: #08110f;
+    border: 2px solid #398260;
+    border-radius: 12px;
+    touch-action: none;
+}
+
+.overlay {
+    position: absolute;
+    inset: 2px;
+    border-radius: 10px;
+    background: rgba(6, 16, 14, 0.94);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.overlay h2 {
+    color: #8dffad;
+    font-size: 28px;
+    margin: 0 0 10px;
+}
+
+.overlay p {
+    color: #d0e8da;
+    line-height: 1.6;
+}
+
+button {
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 10px;
+    padding: 12px 16px;
+}
+
+.primary {
+    background: #1d7545;
+    color: white;
+    border: 1px solid #65e89a;
+}
+
+.secondary {
+    background: #1b2925;
+    color: #e0f5e7;
+    border: 1px solid #45685a;
+}
+
+button:active {
+    transform: scale(0.97);
+}
+
+.help {
+    color: #b2c8be;
+    text-align: center;
+    font-size: 12px;
+    margin-top: 12px;
+}
+
+.actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+}
+
+.speed-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #c3d8cb;
+    font-size: 13px;
+}
+
+.speed-control input {
+    width: 18px;
+    height: 18px;
+    accent-color: #58d98b;
+}
+
+.status {
+    text-align: center;
+    color: #9fb8aa;
+    font-size: 12px;
+    margin-top: 12px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="game-container">
+
+    <div class="header">
+        <div>
+            <div class="title">🐍 SNAKE ARCADE</div>
+            <div class="subtitle">RETRO EDITION · SWIPE TO PLAY</div>
+        </div>
+
+        <div class="scores">
+            <div class="score-box">
+                <small>SCORE</small>
+                <span id="score">0</span>
+            </div>
+
+            <div class="score-box">
+                <small>BEST</small>
+                <span id="best">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-board" id="gameBoard">
+
+        <canvas id="gameCanvas"
+                width="360"
+                height="360"
+                aria-label="Snake game. Swipe on the board to control the snake.">
+        </canvas>
+
+        <div class="overlay" id="overlay">
+            <div>
+                <h2 id="panelTitle">READY?</h2>
+
+                <p id="panelMessage">
+                    Swipe the board to steer.<br>
+                    Eat the red fruit.<br>
+                    Avoid walls and yourself.
+                </p>
+
+                <button class="primary" id="startButton">
+                    ▶ START GAME
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="help">
+        👆 Swipe up, down, left or right to turn.
+        <br>No joystick or directional buttons!
+    </div>
+
+    <div class="actions">
+        <button class="secondary" id="pauseButton">
+            Ⅱ Pause
+        </button>
+
+        <button class="secondary" id="restartButton">
+            ↻ Restart
+        </button>
+
+        <label class="speed-control">
+            <input type="checkbox" id="fastMode">
+            Fast mode
+        </label>
+    </div>
+
+    <div class="status" id="status" aria-live="polite">
+        Press Start Game to begin.
+    </div>
+
+</div>
+
+<script>
+"use strict";
+
+// ---------------- GAME SETTINGS ----------------
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const GRID = 24;
+const CELL = canvas.width / GRID;
+
+const overlay = document.getElementById("overlay");
+const panelTitle = document.getElementById("panelTitle");
+const panelMessage = document.getElementById("panelMessage");
+const startButton = document.getElementById("startButton");
+const pauseButton = document.getElementById("pauseButton");
+const restartButton = document.getElementById("restartButton");
+const fastMode = document.getElementById("fastMode");
+
+const scoreText = document.getElementById("score");
+const bestText = document.getElementById("best");
+const statusText = document.getElementById("status");
+
+// ---------------- GAME VARIABLES ----------------
+
+let snake = [];
+let food = { x: 15, y: 12 };
+
+let direction = { x: 1, y: 0 };
+let nextDirection = { x: 1, y: 0 };
+
+let score = 0;
+let best = 0;
+
+let timer = null;
+let running = false;
+let paused = false;
+let gameOver = false;
+
+let swipeStart = null;
+
+// Load saved best score.
+try {
+    best = Number(localStorage.getItem("retroSnakeBest")) || 0;
+} catch (error) {
+    best = 0;
+}
+
+bestText.textContent = best;
+
+// ---------------- FOOD GENERATION ----------------
+
+function createFood() {
+    const emptyCells = [];
+
+    for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+            const occupied = snake.some(
+                segment => segment.x === x && segment.y === y
+            );
+
+            if (!occupied) {
+                emptyCells.push({ x, y });
+            }
+        }
+    }
+
+    if (emptyCells.length === 0) {
+        winGame();
+        return;
+    }
+
+    food = emptyCells[
+        Math.floor(Math.random() * emptyCells.length)
+    ];
+}
+
+// ---------------- INITIALIZE GAME ----------------
+
+function resetGame() {
+    stopTimer();
+
+    snake = [
+        { x: 11, y: 12 },
+        { x: 10, y: 12 },
+        { x: 9, y: 12 }
+    ];
+
+    direction = { x: 1, y: 0 };
+    nextDirection = { x: 1, y: 0 };
+
+    score = 0;
+    running = false;
+    paused = false;
+    gameOver = false;
+
+    scoreText.textContent = "0";
+    pauseButton.textContent = "Ⅱ Pause";
+
+    createFood();
+    drawGame();
+
+    showPanel(
+        "READY?",
+        "Swipe the board to steer.<br>" +
+        "Eat the red fruit.<br>" +
+        "Avoid walls and yourself.",
+        "▶ START GAME"
+    );
+
+    statusText.textContent = "Press Start Game to begin.";
+}
+
+// ---------------- PANEL CONTROL ----------------
+
+function showPanel(title, message, buttonText) {
+    panelTitle.textContent = title;
+    panelMessage.innerHTML = message;
+    startButton.textContent = buttonText;
+
+    overlay.classList.remove("hidden");
+}
+
+function hidePanel() {
+    overlay.classList.add("hidden");
+}
+
+// ---------------- START GAME ----------------
+
+function startGame() {
+    if (running) return;
+
+    if (gameOver) {
+        resetGame();
+    }
+
+    running = true;
+    paused = false;
+    gameOver = false;
+
+    // IMPORTANT:
+    // Hide the start panel during gameplay.
+    hidePanel();
+
+    pauseButton.textContent = "Ⅱ Pause";
+
+    statusText.textContent =
+        "Game on! Swipe in the direction you want to turn.";
+
+    stopTimer();
+
+    timer = setInterval(
+        updateGame,
+        fastMode.checked ? 85 : 135
+    );
+}
+
+// ---------------- PAUSE / RESUME ----------------
+
+function togglePause() {
+    if (gameOver) return;
+
+    if (running) {
+        stopTimer();
+
+        running = false;
+        paused = true;
+
+        showPanel(
+            "PAUSED",
+            "Game paused.<br>Resume when you're ready!",
+            "▶ RESUME"
+        );
+
+        pauseButton.textContent = "▶ Resume";
+        statusText.textContent = "Game paused.";
+
+    } else {
+        startGame();
+    }
+}
+
+// ---------------- TIMER CONTROL ----------------
+
+function stopTimer() {
+    if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+    }
+}
+
+// ---------------- DIRECTION CONTROL ----------------
+
+function changeDirection(x, y) {
+    // Start automatically when the player swipes the board.
+    if (!running) {
+        if (gameOver) return;
+        startGame();
+    }
+
+    // Prevent reversing directly into the snake's neck.
+    if (x === -direction.x && y === -direction.y) {
+        return;
+    }
+
+    // Prevent multiple turns from causing accidental reversals.
+    if (x === -nextDirection.x && y === -nextDirection.y) {
+        return;
+    }
+
+    nextDirection = { x, y };
+}
+
+// ---------------- SWIPE CONTROLS ----------------
+
+canvas.addEventListener("pointerdown", function(event) {
+    swipeStart = {
+        x: event.clientX,
+        y: event.clientY
+    };
+
+    if (event.pointerType === "touch") {
+        event.preventDefault();
+    }
+});
+
+canvas.addEventListener("pointerup", function(event) {
+    if (!swipeStart) return;
+
+    const dx = event.clientX - swipeStart.x;
+    const dy = event.clientY - swipeStart.y;
+
+    swipeStart = null;
+
+    // Ignore taps and tiny movements.
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) {
+        return;
+    }
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+        changeDirection(dx > 0 ? 1 : -1, 0);
+    } else {
+        changeDirection(0, dy > 0 ? 1 : -1);
+    }
+});
+
+canvas.addEventListener("pointercancel", function() {
+    swipeStart = null;
+});
+
+// ---------------- KEYBOARD SUPPORT ----------------
+
+document.addEventListener("keydown", function(event) {
+    const keys = {
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0]
+    };
+
+    if (keys[event.key]) {
+        event.preventDefault();
+
+        changeDirection(
+            keys[event.key][0],
+            keys[event.key][1]
+        );
+    }
+
+    if (event.code === "Space") {
+        event.preventDefault();
+
+        if (gameOver) return;
+
+        if (!running && !paused) {
+            startGame();
+        } else {
+            togglePause();
+        }
+    }
+});
+
+// ---------------- GAME UPDATE ----------------
+
+function updateGame() {
+    direction = { ...nextDirection };
+
+    const head = {
+        x: snake[0].x + direction.x,
+        y: snake[0].y + direction.y
+    };
+
+    const eating =
+        head.x === food.x &&
+        head.y === food.y;
+
+    // When not eating, the tail moves away during this step.
+    const bodyToCheck = eating
+        ? snake
+        : snake.slice(0, -1);
+
+    const hitWall =
+        head.x < 0 ||
+        head.y < 0 ||
+        head.x >= GRID ||
+        head.y >= GRID;
+
+    const hitSelf = bodyToCheck.some(
+        segment =>
+            segment.x === head.x &&
+            segment.y === head.y
+    );
+
+    if (hitWall || hitSelf) {
+        endGame();
+        return;
+    }
+
+    snake.unshift(head);
+
+    if (eating) {
+        score++;
+
+        scoreText.textContent = score;
+
+        if (score > best) {
+            best = score;
+
+            bestText.textContent = best;
+
+            try {
+                localStorage.setItem(
+                    "retroSnakeBest",
+                    String(best)
+                );
+            } catch (error) {
+                // Game continues if storage is unavailable.
+            }
+
+        }
+
+        createFood();
+
+        if (gameOver) return;
+
+    } else {
+        snake.pop();
+    }
+
+    drawGame();
+}
+
+// ---------------- GAME OVER ----------------
+
+function endGame() {
+    stopTimer();
+
+    running = false;
+    paused = false;
+    gameOver = true;
+
+    drawGame();
+
+    showPanel(
+        "GAME OVER",
+        "Your Score: <b>" + score + "</b><br>" +
+        "Best Score: <b>" + best + "</b>",
+        "↻ PLAY AGAIN"
+    );
+
+    pauseButton.textContent = "Ⅱ Pause";
+    statusText.textContent = "Game over — try again!";
+}
+
+// ---------------- WIN CONDITION ----------------
+
+function winGame() {
+    stopTimer();
+
+    running = false;
+    paused = false;
+    gameOver = true;
+
+    showPanel(
+        "YOU WIN! 🏆",
+        "Amazing! You filled the entire board!",
+        "↻ PLAY AGAIN"
+    );
+
+    statusText.textContent = "You won the game!";
+}
+
+// ---------------- DRAW GAME ----------------
+
+function drawGame() {
+    ctx.fillStyle = "#08110f";
+
+    ctx.fillRect(
+        0, 0,
+        canvas.width,
+        canvas.height
+    );
+
+    // Grid lines.
+    ctx.strokeStyle = "#14251f";
+    ctx.lineWidth = 0.6;
+
+    for (let i = 0; i <= GRID; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * CELL, 0);
+        ctx.lineTo(i * CELL, canvas.height);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, i * CELL);
+        ctx.lineTo(canvas.width, i * CELL);
+        ctx.stroke();
+    }
+
+    // Draw fruit.
+    ctx.fillStyle = "#ff5364";
+    ctx.shadowColor = "#ff5364";
+    ctx.shadowBlur = 12;
+
+    ctx.beginPath();
+
+    ctx.arc(
+        food.x * CELL + CELL / 2,
+        food.y * CELL + CELL / 2,
+        CELL * 0.38,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+
+    // Draw snake.
+    snake.forEach(function(segment, index) {
+        const isHead = index === 0;
+
+        ctx.fillStyle = isHead
+            ? "#8dffad"
+            : "#37c979";
+
+        ctx.shadowColor = isHead
+            ? "#75ffa0"
+            : "transparent";
+
+        ctx.shadowBlur = isHead ? 9 : 0;
+
+        ctx.beginPath();
+
+        ctx.roundRect(
+            segment.x * CELL + 1,
+            segment.y * CELL + 1,
+            CELL - 2,
+            CELL - 2,
+            isHead ? 4 : 3
+        );
+
+        ctx.fill();
+
+        // Eyes on the snake's head.
+        if (isHead) {
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#10271a";
+
+            const cx = segment.x * CELL + CELL / 2;
+            const cy = segment.y * CELL + CELL / 2;
+
+            const ex = cx + direction.x * 3;
+            const ey = cy + direction.y * 3;
+
+            ctx.beginPath();
+
+            ctx.arc(
+                ex - direction.y * 3,
+                ey + direction.x * 3,
+                1.4,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.arc(
+                ex + direction.y * 3,
+                ey - direction.x * 3,
+                1.4,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fill();
+        }
+    });
+
+    ctx.shadowBlur = 0;
+}
+
+// ---------------- BUTTON EVENTS ----------------
+
+startButton.addEventListener("click", startGame);
+
+pauseButton.addEventListener("click", togglePause);
+
+restartButton.addEventListener("click", resetGame);
+
+// Change speed immediately when Fast mode changes.
+fastMode.addEventListener("change", function() {
+    if (running) {
+        stopTimer();
+
+        timer = setInterval(
+            updateGame,
+            fastMode.checked ? 85 : 135
+        );
+    }
+});
+
+// ---------------- INITIALIZE ----------------
+
+resetGame();
+
+</script>
+
+</body>
+</html>
